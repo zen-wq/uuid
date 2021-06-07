@@ -285,14 +285,16 @@ characters.~@:>" string (length string)))
 (defun digest-uuid (digest uuid name)
   "Helper function that produces a digest from a namespace (a byte array) and a string. Used for the
 generation of version 3 and 5 uuids."
-  #+clasp(cond
-           ((eq digest :md5)
-            (core:digest-md5 (list uuid (trivial-utf-8:string-to-utf-8-bytes name))))
-           ((eq digest :sha1)
-            (core:digest-sha1 (list uuid (trivial-utf-8:string-to-utf-8-bytes name))))
-           (t (error "Add support for the digest ~a" digest)))
-  #-clasp(let ((digester (ironclad:make-digest digest)))
-           (ironclad:update-digest digester uuid)
-           (ironclad:update-digest digester (trivial-utf-8:string-to-utf-8-bytes name))
-           (ironclad:produce-digest digester))
-  )
+  #+clasp
+  (cond
+    ((eq digest :md5)
+     (core:digest-md5 (list uuid (trivial-utf-8:string-to-utf-8-bytes name))))
+    ((eq digest :sha1)
+     (core:digest-sha1 (list uuid (trivial-utf-8:string-to-utf-8-bytes name))))
+    (t (error "Add support for the digest ~a" digest)))
+  #-clasp
+  (let ((data (concatenate '(vector (unsigned-byte 8)) uuid (babel:string-to-octets name :encoding :utf-8))))
+    (case digest
+      (:md5 (md5:md5sum-sequence data))
+      (:sha1 (make-array 16 :element-type '(unsigned-byte 8)
+                            :initial-contents (subseq (sha1:sha1-digest data) 0 16))))))
